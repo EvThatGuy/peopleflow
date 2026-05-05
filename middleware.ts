@@ -3,53 +3,87 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
-/**
- * Refreshes the Supabase session on every request and gates `/app/*` routes
- * behind authentication. Demo mode (env flag) bypasses the auth check so
- * the seeded Northwind tenant is browsable without setting up real auth.
- */
+const APP_ROUTE_PREFIXES = [
+  '/dashboard',
+  '/people',
+  '/org-chart',
+  '/onboarding',
+  '/offboarding',
+  '/time-off',
+  '/time-tracking',
+  '/compensation',
+  '/recruiting',
+  '/performance',
+  '/documents',
+  '/workflows',
+  '/assistant',
+  '/analytics',
+  '/settings',
+];
+
+function isProtectedPath(pathname: string) {
+  return APP_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function redirectToLogin(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  url.pathname = '/login';
+  url.searchParams.set('next', request.nextUrl.pathname);
+  return NextResponse.redirect(url);
+}
+
 export async function middleware(request: NextRequest) {
+  // Public routes never touch Supabase — a misconfigured env or transient
+  // auth outage must not be able to 500 /login, /signup, or /.
+  if (!isProtectedPath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    return NextResponse.next();
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Bare assertions used to crash the Edge runtime (MIDDLEWARE_INVOCATION_FAILED)
+  // when these were unset for the deployed environment. Fail loud but cleanly.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error(
+      'middleware: missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY'
+    );
+    return new NextResponse('Service misconfigured', { status: 503 });
+  }
+
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet: CookieToSet[]) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        );
+      },
+    },
+  });
 
-  // Refresh session
-  const { data: { user } } = await supabase.auth.getUser();
+  let user: { id: string } | null = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    // Treat any auth failure as unauthenticated — safer than crashing the
+    // request, and the redirect below sends the user somewhere usable.
+    console.error('middleware: supabase.auth.getUser failed', error);
+  }
 
-  const pathname = request.nextUrl.pathname;
-  const isAppRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/people')
-    || pathname.startsWith('/org-chart') || pathname.startsWith('/onboarding')
-    || pathname.startsWith('/offboarding') || pathname.startsWith('/time-off')
-    || pathname.startsWith('/time-tracking') || pathname.startsWith('/compensation')
-    || pathname.startsWith('/recruiting') || pathname.startsWith('/performance')
-    || pathname.startsWith('/documents') || pathname.startsWith('/workflows')
-    || pathname.startsWith('/assistant') || pathname.startsWith('/analytics')
-    || pathname.startsWith('/settings');
-
-  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
-
-  if (isAppRoute && !user && !demoMode) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    url.searchParams.set('next', pathname);
-    return NextResponse.redirect(url);
+  if (!user) {
+    return redirectToLogin(request);
   }
 
   return response;
