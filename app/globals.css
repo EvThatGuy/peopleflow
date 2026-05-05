@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   PeopleFlow design tokens
+   -----------------------------------------------------------------------------
+   Aesthetic direction: trustworthy, premium, restrained. Pairs an editorial
+   serif for marketing display moments with a refined sans for the app shell.
+   The accent — a deep jade green — signals "people / growth / approval"
+   without the predictable enterprise blue.
+   ============================================================================= */
+
+@layer base {
+  :root {
+    /* surfaces — warm off-white instead of stark gray */
+    --background: 36 33% 98%;
+    --foreground: 220 39% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 39% 11%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 165 65% 25%;
+
+    /* Primary — deep navy (used for buttons, headlines) */
+    --primary: 220 39% 11%;
+    --primary-foreground: 36 33% 98%;
+
+    /* Accent — refined jade green */
+    --accent: 165 65% 25%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 60% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Sidebar — deep midnight navy with a green accent */
+    --sidebar: 220 47% 10%;
+    --sidebar-foreground: 220 14% 88%;
+    --sidebar-muted: 220 18% 60%;
+    --sidebar-accent: 165 65% 45%;
+    --sidebar-border: 220 32% 18%;
+
+    --radius: 6px;
+
+    --font-sans: 'Geist', 'Inter', system-ui, sans-serif;
+    --font-display: 'Instrument Serif', Georgia, serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
+  }
+
+  /* Optional dark theme — kept simple; full theming pass before launch */
+  .dark {
+    --background: 220 39% 7%;
+    --foreground: 36 20% 96%;
+    --card: 220 39% 10%;
+    --card-foreground: 36 20% 96%;
+    --muted: 220 32% 16%;
+    --muted-foreground: 220 14% 70%;
+    --border: 220 32% 18%;
+    --input: 220 32% 18%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "cv03";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Subtle grid background for the marketing hero */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent);
+  }
+
+  .bg-noise {
+    position: relative;
+  }
+  .bg-noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E");
+  }
+
+  /* Numbers and stats use the mono font everywhere they appear */
+  .num {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "ss01";
+    letter-spacing: -0.01em;
+  }
+}
